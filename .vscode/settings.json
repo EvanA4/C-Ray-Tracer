@@ -24,6 +24,7 @@
         "memory": "c",
         "random": "c",
         "vector": "c",
-        "pthread.h": "c"
+        "pthread.h": "c",
+        "stdio.h": "c"
     }
 }
