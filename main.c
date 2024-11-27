@@ -1,12 +1,16 @@
 #include <stdio.h>
 #include <pthread.h>
 #include "args.h"
+#include "tpool.h"
 
 
 int main(int argc, char **argv) {
-    KerrArgs *args = parse_args(argc, argv);
+    struct KerrArgs *args = parse_args(argc, argv);
     if (!args) return 1;
     
-    printf("Num threads: %d          File name: %s\n", args->numThreads, args->fileName);
+    // create thread pool
+    struct TPool *mypool = tpool_init(args);
+
+
     free_args(args);
 }

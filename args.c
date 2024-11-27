@@ -6,9 +6,6 @@
 #include "args.h"
 
 
-typedef struct KerrArgs KerrArgs;
-
-
 int free_args(KerrArgs *args) {
     if (!args) return 0;
     if (args->fileName) free(args->fileName);
@@ -36,8 +33,8 @@ KerrArgs *parse_args(int argc, char **argv) {
 
             case 'f':
                 int argLen = (int) strlen(optarg);
-                out->fileName = malloc((argLen + 1) * sizeof(char));
-                memcpy(out->fileName, optarg, (argLen + 1) * sizeof(char));
+                out->fileName = malloc((argLen + 5) * sizeof(char));
+                sprintf(out->fileName, "%s.ppm", optarg);
                 break;
 
             case '?':  
