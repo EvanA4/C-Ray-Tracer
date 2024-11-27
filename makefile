@@ -1,4 +1,4 @@
 all:
-	gcc -Wall -Wextra -o donut main.c
+	gcc -Wall -Wextra -o kerr main.c args.c -lpthread
 clean:
 	rm donut
