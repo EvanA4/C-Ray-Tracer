@@ -13,7 +13,7 @@ enum Status {
 
 struct Worker {
     pthread_t tid;
-    enum Status stat;
+    Status stat;
 };
 
 
@@ -21,24 +21,24 @@ struct Item {
     bool isTaken;
     int startPx;
     int numPx;
-    struct Item *next;
+    Item *next;
 };
 
 
 struct TPool {
-    struct Worker *workers;
-    struct Item *queue;
+    Worker *workers;
+    Item *queue;
 };
 
 
-static void *worker_driver(void *args) {
+void *worker_driver(void *args) {
     return NULL;
 }
 
 
-struct TPool *tpool_init(struct KerrArgs *args) {
-    struct TPool *out = malloc(sizeof(struct TPool));
-    out->workers = malloc(args->numThreads * sizeof(struct Worker));
+TPool *tpool_init(KerrArgs *args) {
+    TPool *out = malloc(sizeof(TPool));
+    out->workers = malloc(args->numThreads * sizeof(Worker));
 
     // create actual threads and give them access to TPool
     for (int i = 0; i < args->numThreads; ++i) {

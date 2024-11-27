@@ -1,12 +1,19 @@
+#ifndef TPOOL_H
+#define TPOOL_H
+
+
 #include <stdbool.h>
 #include "args.h"
 
 
-enum Status;
-struct Worker;
-struct Item;
-struct TPool;
+typedef enum Status Status;
+typedef struct Worker Worker;
+typedef struct Item Item;
+typedef struct TPool TPool;
 
 
-struct TPool *tpool_init(struct KerrArgs *args);
-static void *worker_driver(void *args);
+TPool *tpool_init(KerrArgs *args);
+void *worker_driver(void *args);
+
+
+#endif
