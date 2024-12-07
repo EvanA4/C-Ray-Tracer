@@ -7,17 +7,13 @@
 
 
 typedef enum Status Status;
-typedef struct Worker Worker;
-typedef struct Item Item;
-typedef struct Queue Queue;
+typedef struct Task Task;
 typedef struct TPool TPool;
-typedef struct WorkerArgs WorkerArgs;
 
 
 TPool *tpool_init(KerrArgs *args);
-void *worker_driver(void *args);
-void tpool_push(TPool *tpool, char *toPrint);
-void tpool_close(TPool *tpool);
+void tpool_push(TPool *pool, int todo);
+void tpool_close(TPool *pool);
 
 
 #endif

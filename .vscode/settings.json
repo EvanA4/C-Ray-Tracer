@@ -25,6 +25,8 @@
         "random": "c",
         "vector": "c",
         "pthread.h": "c",
-        "stdio.h": "c"
+        "stdio.h": "c",
+        "stdbool.h": "c",
+        "stdlib.h": "c"
     }
 }

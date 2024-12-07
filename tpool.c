@@ -1,173 +1,221 @@
+#ifndef TPOOL_H
+#define TPOOL_H
+
 #include <pthread.h>
-#include <stdlib.h>
 #include <stdbool.h>
-#include <stdio.h>
-#include "tpool.h"
+#include <unistd.h>
+#include <stdlib.h>
 #include "args.h"
+#include "tga.h"
+
+#define WIDTH 128
+#define HEIGHT 128
+#define TASK_SIZE 278
 
 
-enum Status {
+typedef enum Status {
     BUSY,
-    IDLE,
-    DYING
-};
+    IDLE
+} Status;
 
 
-struct Worker {
+typedef struct Result {
+    Pixel *buf;
+    int len;
+} Result;
+
+
+typedef struct Worker {
     pthread_t tid;
     Status stat;
-};
-
-
-struct Item {
-    bool isTaken;
     int startPx;
-    int numPx;
-    char *tempStr;
-    Item *next;
-};
+    Result *result;
+} Worker;
 
 
-struct Queue {
-    Item *head;
-    pthread_mutex_t mutex;
-    pthread_cond_t notEmpty;
-    pthread_cond_t notFull;
-};
-
-
-struct TPool {
+typedef struct TPool {
+    FILE *fptr;
+    int width;
+    int height;
     Worker *workers;
-    Queue *q;
-    int numWorkers;
-};
+    int size;
+    int capacity;
+    bool die;
+
+    pthread_mutex_t mutex;
+    pthread_cond_t start;
+} TPool;
 
 
-struct WorkerArgs {
-    TPool *tpool;
-    int tidx;
-};
+typedef struct WorkerArgs {
+    TPool *pool;
+    int widx;
+} WorkerArgs;
 
 
-static bool q_isempty(Queue *q) {
-    return q->head->next == NULL;
-}
+static Result *fakeRenderer(TPool *pool, int widx) {
+    int numPxsLeft = pool->width * pool->height - pool->workers[widx].startPx;
+    int numPxs = numPxsLeft < TASK_SIZE ? numPxsLeft : TASK_SIZE;
 
+    Result *out = malloc(sizeof(Result));
+    out->buf = malloc(numPxs * sizeof(Pixel *));
+    out->len = numPxs;
 
-static void q_push(Queue *q, Item *toAdd) {
-    if (!q || !toAdd) return;
+    for (int i = 0; i < numPxs; ++i) {
+        int pxNum = pool->workers[widx].startPx + i;
 
-    Item *backup = q->head;
-    while (q->head->next) {
-        q->head = q->head->next;
+        float row01 = pxNum / pool->width / (float) pool->height;
+        float col01 = pxNum % pool->width / (float) pool->width;
+
+        Pixel tmp;
+        tmp.r = (unsigned char) 255 * row01;
+        tmp.g = (unsigned char) 255 * col01;
+        tmp.b = (unsigned char) 0;
+        out->buf[i] = tmp;
     }
-    q->head->next = toAdd;
-    q->head = backup;
-}
 
-
-static Item *q_pop(Queue *q) {
-    if (!q || q_isempty(q)) return NULL;
-
-    Item *out = q->head->next;
-    if (out->next) q->head->next = out->next;
-    else q->head->next = NULL;
     return out;
 }
 
 
-void *worker_driver(void *args) {
+static void *worker(void *args) {
     WorkerArgs *wargs = (WorkerArgs *) args;
-    Worker *me = &(wargs->tpool->workers[wargs->tidx]);
-    Queue *q = wargs->tpool->q;
+    TPool *pool = wargs->pool;
+    Worker *me = pool->workers + wargs->widx;
+    // printf("thread created with widx %d!\n", wargs->widx);
 
-    while (me->stat != DYING) {
-        // have worker wait for new task
-        while (q_isempty(q) && me->stat != DYING) {
-            pthread_mutex_lock(&(q->mutex));
-            pthread_cond_wait(&(q->notEmpty), &(q->mutex));
-            pthread_mutex_unlock(&(q->mutex));
+    struct timespec maxwait;
+    maxwait.tv_nsec = 250000000;
+    maxwait.tv_sec = 0;
+
+    while (!pool->die) {
+        while (me->stat == IDLE && !pool->die) {
+            // wait for signal to start work
+            pthread_mutex_lock(&(pool->mutex));
+            // printf("locked mutex, waiting for signal!\n");
+            pthread_cond_timedwait(&(pool->start), &(pool->mutex), &maxwait);
+            pthread_mutex_unlock(&(pool->mutex));
         }
-        if (me->stat == DYING) break;
+        if (me->startPx < 0) continue;
 
         // actually do the work
-        me->stat = BUSY;
-        Item *cur = q_pop(q);
-        printf("[%d] \"%s\"\n", wargs->tidx, cur->tempStr);
-        free(cur->tempStr);
-        free(cur);
+        // printf("aight actually doing work now at pixel %d\n", me->startPx);
+        me->result = fakeRenderer(pool, wargs->widx);
         me->stat = IDLE;
     }
 
+    // printf("uh oh dying now\n");
     free(wargs);
     return NULL;
 }
 
 
+static void tpool_flush(TPool *pool) {
+    // signal all workers to start
+    pthread_mutex_lock(&(pool->mutex));
+    // printf("locked mutex, broadcasting\n");
+    pthread_cond_broadcast(&(pool->start));
+    pthread_mutex_unlock(&(pool->mutex));
+
+    // wait for workers to finish
+    // printf("waiting for workers to be done\n");
+    bool done = false;
+    while (!done) {
+        done = true;
+        usleep(250000);
+        for (int i = 0; i < pool->size; ++i) {
+            if (pool->workers[i].stat == BUSY) {
+                done = false;
+                break;
+            }
+        }
+    }
+
+    // write work to tga file
+    // printf("workers are done, writing to file...\n");
+    for (int i = 0; i < pool->size; ++i) {
+        if (pool->workers[i].result) {
+            // printf("writing %d pixels at %d\n", pool->workers[i].result->len, pool->workers[i].startPx);
+            tga_write(pool->fptr, pool->workers[i].result->buf, pool->workers[i].result->len);
+            free(pool->workers[i].result->buf);
+            free(pool->workers[i].result);
+            pool->workers[i].result = NULL;
+            pool->workers[i].startPx = -1;
+        }
+    }
+
+    // printf("flush was a success!\n");
+    pool->capacity = 0;
+}
+
+
 TPool *tpool_init(KerrArgs *args) {
-    TPool *out = malloc(sizeof(TPool));
-    out->workers = malloc(args->numThreads * sizeof(Worker));
+    TPool *pool = malloc(sizeof(TPool));
+    pool->die = 0;
+    pool->fptr = tga_open(WIDTH, HEIGHT, args->fileName);
+    pool->width = WIDTH;
+    pool->height = HEIGHT;
+    pool->size = args->numThreads;
+    pool->capacity = 0;
+    pool->workers = malloc(args->numThreads * sizeof(Worker));
 
-    // set workers to idle
-    for (int i = 0; i < args->numThreads; ++i) {
-        out->workers[i].stat = IDLE;
-    }
+    pthread_mutex_init(&(pool->mutex), NULL);
+    pthread_cond_init(&(pool->start), NULL);
 
-    out->numWorkers = args->numThreads;
-    out->q = malloc(sizeof(Queue));
-    out->q->head = malloc(sizeof(Item));
-    out->q->head->next = NULL;
-
-    // initialize mutex and conditional variables
-    pthread_mutex_init(&(out->q->mutex), NULL);
-    pthread_cond_init(&(out->q->notFull), NULL);
-    pthread_cond_init(&(out->q->notEmpty), NULL);
-
-    // create actual threads and give them access to TPool
-    for (int i = 0; i < args->numThreads; ++i) {
+    // create threads
+    for (int i = 0; i < pool->size; ++i) {
+        pool->workers[i].result = NULL;
+        pool->workers[i].startPx = -1;
+        pool->workers[i].stat = IDLE;
         WorkerArgs *wargs = malloc(sizeof(WorkerArgs));
-        wargs->tpool = out;
-        wargs->tidx = i;
-        pthread_create(&(out->workers[i].tid), NULL, worker_driver, (void *) wargs);
+        wargs->pool = pool;
+        wargs->widx = i;
+        pthread_create(&(pool->workers[i].tid), NULL, worker, (void *) wargs);
     }
 
-    return out;
+    return pool;
 }
 
 
-void tpool_push(TPool *tpool, char *toPrint) {
-    Item *toAdd = malloc(sizeof(Item));
-    toAdd->tempStr = toPrint;
-    toAdd->next = NULL;
+void tpool_push(TPool *pool, int todo) {
+    // add task to array
+    // printf("adding task for pixel %d\n", todo);
+    pool->workers[pool->capacity].startPx = todo;
+    pool->workers[pool->capacity].stat = BUSY;
+    pool->capacity += 1;
 
-    pthread_mutex_lock(&(tpool->q->mutex));
-    q_push(tpool->q, toAdd);
-    pthread_cond_signal(&(tpool->q->notEmpty));
-    pthread_mutex_unlock(&(tpool->q->mutex));
+    // check if filled thread pool
+    if (pool->capacity == pool->size) {
+        // printf("uh oh filled pool\n");
+        tpool_flush(pool);
+    }
 }
 
 
-void tpool_close(TPool *tpool) {
-    if (!tpool) return;
-
-    // tell all workers to die and signal them
-    for (int i = 0; i < tpool->numWorkers; ++i) {
-        tpool->workers[i].stat = DYING;
-    }
-    pthread_mutex_lock(&(tpool->q->mutex));
-    pthread_cond_broadcast(&(tpool->q->notEmpty));
-    pthread_mutex_unlock(&(tpool->q->mutex));
-
-    // wait for workers to die
-    for (int i = 0; i < tpool->numWorkers; ++i) {
-        pthread_join(tpool->workers[i].tid, NULL);
+void tpool_close(TPool *pool) {
+    // check if there is still work to be done
+    if (pool->capacity) {
+        tpool_flush(pool);
     }
 
-    free(tpool->workers);
-    free(tpool->q->head);
-    pthread_mutex_destroy(&(tpool->q->mutex));
-    pthread_cond_destroy(&(tpool->q->notEmpty));
-    pthread_cond_destroy(&(tpool->q->notFull));
-    free(tpool->q);
-    free(tpool);
+    // signal all threads to die
+    pool->die = true;
+    pthread_mutex_lock(&(pool->mutex));
+    pthread_cond_broadcast(&(pool->start));
+    pthread_mutex_unlock(&(pool->mutex));
+
+    // join each thread
+    for (int i = 0; i < pool->size; ++i) {
+        pthread_join(pool->workers[i].tid, NULL);
+    }
+
+    // free a bunch of stuff
+    free(pool->workers);
+    pthread_mutex_destroy(&(pool->mutex));
+    pthread_cond_destroy(&(pool->start));
+    tga_close(pool->fptr);
+    free(pool);
 }
+
+
+#endif

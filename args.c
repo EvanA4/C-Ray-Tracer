@@ -6,6 +6,14 @@
 #include "args.h"
 
 
+/*
+width of picture
+height of picture
+batch size
+task size
+*/
+
+
 int free_args(KerrArgs *args) {
     if (!args) return 0;
     if (args->fileName) free(args->fileName);
@@ -34,7 +42,7 @@ KerrArgs *parse_args(int argc, char **argv) {
             case 'f':
                 int argLen = (int) strlen(optarg);
                 out->fileName = malloc((argLen + 5) * sizeof(char));
-                sprintf(out->fileName, "%s.ppm", optarg);
+                sprintf(out->fileName, "%s.tga", optarg);
                 break;
 
             case '?':  
@@ -54,7 +62,7 @@ KerrArgs *parse_args(int argc, char **argv) {
     if (!out->fileName) {
         out->fileName = malloc(64 * sizeof(char));
         time_t seconds = time(NULL);
-        strftime(out->fileName, 64, "%m-%d-%Y.ppm", localtime(&seconds));
+        strftime(out->fileName, 64, "%m-%d-%Y.tga", localtime(&seconds));
     }
 
     return out;
