@@ -1,4 +1,5 @@
 all:
-	gcc -Wall -Wextra -o kerr main.c args.c tpool.c tga.c -lpthread
+	mkdir -p bin
+	gcc -Wall -Wextra -o bin/kerr src/main.c src/args.c src/tpool.c src/tga.c -lpthread
 clean:
 	rm donut

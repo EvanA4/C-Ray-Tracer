@@ -65,5 +65,6 @@ KerrArgs *parse_args(int argc, char **argv) {
         strftime(out->fileName, 64, "%m-%d-%Y.tga", localtime(&seconds));
     }
 
+    printf("%s\n", out->fileName);
     return out;
 }
