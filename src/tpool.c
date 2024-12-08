@@ -1,6 +1,3 @@
-#ifndef TPOOL_H
-#define TPOOL_H
-
 #include <pthread.h>
 #include <stdbool.h>
 #include <unistd.h>
@@ -60,15 +57,16 @@ static Result *gen_pixels(TPool *pool, int widx) {
 
     for (int i = 0; i < numPxs; ++i) {
         int pxNum = pool->workers[widx].startPx + i;
+        out->buf[i] = render(pool->rptr, pxNum);
 
-        float row01 = pxNum / pool->rptr->width / (float) pool->rptr->height;
-        float col01 = pxNum % pool->rptr->width / (float) pool->rptr->width;
+        // float row01 = pxNum / pool->rptr->width / (float) pool->rptr->height;
+        // float col01 = pxNum % pool->rptr->width / (float) pool->rptr->width;
 
-        Pixel tmp;
-        tmp.r = (unsigned char) 255 * row01;
-        tmp.g = (unsigned char) 255 * col01;
-        tmp.b = (unsigned char) 0;
-        out->buf[i] = tmp;
+        // Pixel tmp;
+        // tmp.r = (unsigned char) 255 * row01;
+        // tmp.g = (unsigned char) 255 * col01;
+        // tmp.b = (unsigned char) 0;
+        // out->buf[i] = tmp;
     }
 
     return out;
@@ -223,6 +221,3 @@ void tpool_close(TPool *pool) {
     free(pool->rptr);
     free(pool);
 }
-
-
-#endif
