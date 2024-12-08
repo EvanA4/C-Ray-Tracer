@@ -1,7 +1,6 @@
 #ifndef ARGS_H
 #define ARGS_H
 
-
 /*
 x/t : x pos/dir of camera
 y/u : y pos/dir of camera

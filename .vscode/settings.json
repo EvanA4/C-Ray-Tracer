@@ -27,6 +27,9 @@
         "pthread.h": "c",
         "stdio.h": "c",
         "stdbool.h": "c",
-        "stdlib.h": "c"
+        "stdlib.h": "c",
+        "string.h": "c",
+        "tpool.h": "c",
+        "args.h": "c"
     }
 }

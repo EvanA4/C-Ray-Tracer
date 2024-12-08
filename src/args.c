@@ -50,12 +50,12 @@ void print_args(KerrArgs *args) {
 KerrArgs *parse_args(int argc, char **argv) {
     KerrArgs *out = malloc(sizeof(KerrArgs));
     *out = (KerrArgs) {
-        {0, 10, 0},
-        {0, -1, 0},
-        60,
-        128,
-        128,
-        256,
+        {0, 0, 10},
+        {0, 0, -1},
+        90,
+        512,
+        512,
+        2048,
         NULL,
         16
     };
