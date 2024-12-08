@@ -7,10 +7,7 @@
 #include <stdlib.h>
 #include "args.h"
 #include "tga.h"
-
-#define WIDTH 128
-#define HEIGHT 128
-#define TASK_SIZE 278
+#include "render.h"
 
 
 typedef enum Status {
@@ -35,12 +32,12 @@ typedef struct Worker {
 
 typedef struct TPool {
     FILE *fptr;
-    int width;
-    int height;
+    Renderer *rptr;
     Worker *workers;
     int size;
     int capacity;
     bool die;
+    int taskSize;
 
     pthread_mutex_t mutex;
     pthread_cond_t start;
@@ -53,9 +50,9 @@ typedef struct WorkerArgs {
 } WorkerArgs;
 
 
-static Result *fakeRenderer(TPool *pool, int widx) {
-    int numPxsLeft = pool->width * pool->height - pool->workers[widx].startPx;
-    int numPxs = numPxsLeft < TASK_SIZE ? numPxsLeft : TASK_SIZE;
+static Result *gen_pixels(TPool *pool, int widx) {
+    int numPxsLeft = pool->rptr->width * pool->rptr->height - pool->workers[widx].startPx;
+    int numPxs = numPxsLeft < pool->taskSize ? numPxsLeft : pool->taskSize;
 
     Result *out = malloc(sizeof(Result));
     out->buf = malloc(numPxs * sizeof(Pixel *));
@@ -64,8 +61,8 @@ static Result *fakeRenderer(TPool *pool, int widx) {
     for (int i = 0; i < numPxs; ++i) {
         int pxNum = pool->workers[widx].startPx + i;
 
-        float row01 = pxNum / pool->width / (float) pool->height;
-        float col01 = pxNum % pool->width / (float) pool->width;
+        float row01 = pxNum / pool->rptr->width / (float) pool->rptr->height;
+        float col01 = pxNum % pool->rptr->width / (float) pool->rptr->width;
 
         Pixel tmp;
         tmp.r = (unsigned char) 255 * row01;
@@ -100,7 +97,7 @@ static void *worker(void *args) {
 
         // actually do the work
         // printf("aight actually doing work now at pixel %d\n", me->startPx);
-        me->result = fakeRenderer(pool, wargs->widx);
+        me->result = gen_pixels(pool, wargs->widx);
         me->stat = IDLE;
     }
 
@@ -152,9 +149,18 @@ static void tpool_flush(TPool *pool) {
 TPool *tpool_init(KerrArgs *args) {
     TPool *pool = malloc(sizeof(TPool));
     pool->die = 0;
-    pool->fptr = tga_open(WIDTH, HEIGHT, args->fileName);
-    pool->width = WIDTH;
-    pool->height = HEIGHT;
+    pool->fptr = tga_open(args->width, args->height, args->fileName);
+    
+    pool->rptr = malloc(sizeof(Renderer));
+    for (int i = 0; i < 3; ++i) {
+        pool->rptr->pos[i] = args->pos[i];
+        pool->rptr->dir[i] = args->dir[i];
+    }
+    pool->rptr->fov = args->fov;
+    pool->rptr->width = args->width;
+    pool->rptr->height = args->height;
+
+    pool->taskSize = args->taskSize;
     pool->size = args->numThreads;
     pool->capacity = 0;
     pool->workers = malloc(args->numThreads * sizeof(Worker));
@@ -214,6 +220,7 @@ void tpool_close(TPool *pool) {
     pthread_mutex_destroy(&(pool->mutex));
     pthread_cond_destroy(&(pool->start));
     tga_close(pool->fptr);
+    free(pool->rptr);
     free(pool);
 }
 

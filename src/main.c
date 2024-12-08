@@ -12,7 +12,7 @@ int main(int argc, char **argv) {
     if (!args) return 1;
     
     TPool *pool = tpool_init(args);
-    for (int i = 0; i < 128 * 128; i += 278) tpool_push(pool, i);
+    for (int i = 0; i < args->width * args->height; i += args->taskSize) tpool_push(pool, i);
     tpool_close(pool);
 
     free_args(args);
