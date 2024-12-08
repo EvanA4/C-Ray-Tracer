@@ -51,22 +51,23 @@ static Ray *create_ray(Renderer *rptr, int px) {
     // also thanks http://www.codinglabs.net/article_world_view_projection_matrix.aspx
 
     // determine screen space of pixel
-    float row01 = px / rptr->width / (float) rptr->height;
-    float col01 = px % rptr->width / (float) rptr->width;
-    row01 += .5F / rptr->width;
-    col01 += .5F / rptr->height;
-    float scrnx = 2 * row01 - 1;
-    float scrny = 1 - 2 * col01;
-    // printf("Screen Space: %.2f, %.2f\n", scrnx, scrny);
+    float nrcx = px % rptr->width / (float) rptr->width;
+    float nrcy = px / rptr->width / (float) rptr->height;
+    nrcx += .5F / rptr->height;
+    nrcy += .5F / rptr->width;
+    // printf("\n\n[%d] NRC Space: %.2f, %.2f\n", px, nrcx, nrcy);
+    float scrnx = 2 * nrcx - 1;
+    float scrny = 1 - 2 * nrcy;
+    // printf("[%d] Screen Space: %.2f, %.2f\n", px, scrnx, scrny);
 
     // determine camera space of pixel
     float aspect = rptr->width / (float) rptr->height;
     float tana = tan(rptr->fov / 360.0F * PI);
     float camx = scrnx * aspect * tana;
     float camy = scrny * tana;
-    // printf("Camera Space: %.2f, %.2f\n", camx, camy);
+    // printf("[%d] Camera Space: %.2f, %.2f\n", px, camx, camy);
 
-    Vec4 camSpace = {camx, camy, -1, 1};
+    Vec4 camSpace = {camx, camy, 1, 1};
 
     // get direction of ray
     Ray *out = malloc(sizeof(Ray));
@@ -77,7 +78,7 @@ static Ray *create_ray(Renderer *rptr, int px) {
         out->pos[i] = rptr->pos[i];
         worldSpace3[i] = worldSpace4[i];
     }
-    // printf("World Space: %.2f, %.2f, %.2f\n", worldSpace3[0], worldSpace3[1], worldSpace3[2]);
+    // printf("[%d] World Space: %.2f, %.2f, %.2f\n", px, worldSpace3[0], worldSpace3[1], worldSpace3[2]);
 
     Vec3 direction = {0.0F, 0.0F, 0.0F};
     subV3(worldSpace3, out->pos, direction);
@@ -115,18 +116,18 @@ Renderer *render_init(KerrArgs *args) {
     //     thanks to https://www.3dgep.com/understanding-the-view-matrix/
     Vec3 forward = {args->dir[0], args->dir[1], args->dir[2]};
     Vec3 position = {args->pos[0], args->pos[1], args->pos[2]};
-    for (int i = 0; i < 3; ++i) out->view[i][2] = -forward[i];
+    for (int i = 0; i < 3; ++i) out->view[i][2] = forward[i];
 
     //     cross product between cam's forward (dir) and true Y => cam's right vector
     Vec3 right = {0.0F, 0.0F, 0.0F};
     Vec3 trueY = {0.0F, 1.0F, 0.0F};
     vcross(forward, trueY, right);
-    for (int i = 0; i < 3; ++i) out->view[i][0] = -right[i];
+    for (int i = 0; i < 3; ++i) out->view[i][0] = right[i];
 
     //     cross product between cam's right and cam's forward => cam's up vector
     Vec3 up = {0.0F, 0.0F, 0.0F};
     vcross(right, forward, up);
-    for (int i = 0; i < 3; ++i) out->view[i][1] = -up[i];
+    for (int i = 0; i < 3; ++i) out->view[i][1] = up[i];
 
     //     set position of camera
     out->view[3][3] = 1.0F;
@@ -218,15 +219,7 @@ Pixel render_sphere(Ray *cur) {
 
 Pixel render(Renderer *rptr, int px) {
     Ray *cur = create_ray(rptr, px);
-    // printf(
-    //     "[%d] Position: {%2.f, %.2f, %.2f}            Direction: {%2.f, %.2f, %.2f}\n",
-    //     px, cur->pos[0], cur->pos[1], cur->pos[2], cur->dir[0], cur->dir[1], cur->dir[2]
-    // );
-    // if (px == 12) {
     Pixel out = render_sphere(cur);
     free(cur);
     return out;
-    // } else {
-    //     return uvpx(rptr, px);
-    // }
 }
