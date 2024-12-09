@@ -3,6 +3,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include "args.h"
 
 
@@ -192,6 +193,10 @@ KerrArgs *parse_args(int argc, char **argv) {
         time_t seconds = time(NULL);
         strftime(out->fileName, 64, "%m-%d-%Y.tga", localtime(&seconds));
     }
+
+    // normalize direction vector
+    float dirlen = sqrt(out->dir[0] * out->dir[0] + out->dir[1] * out->dir[1] + out->dir[2] * out->dir[2]);
+    if (dirlen > .001) for (int i = 0; i < 3; ++i) out->dir[i] /= dirlen;
 
     print_args(out);
     return out;

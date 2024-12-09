@@ -19,7 +19,7 @@ static float vlen(Vec3 vec) {
 
 static void vnorm(Vec3 vec) {
     float len = vlen(vec);
-    for (int i = 0; i < 3; ++i) vec[i] = vec[i] / len;
+    if (len) for (int i = 0; i < 3; ++i) vec[i] = vec[i] / len;
 }
 
 static void vcross(Vec3 a, Vec3 b, Vec3 dest) {
@@ -42,6 +42,12 @@ static void mulM4V4(Mat4 mat, Vec4 vec, Vec4 dest) {
 
 static void subV3(Vec3 a, Vec3 b, Vec3 dest) {
     for (int i = 0; i < 3; ++i) dest[i] = a[i] - b[i];
+}
+
+static float dotV3(Vec3 a, Vec3 b) {
+    float out = 0.0F;
+    for (int i = 0; i < 3; ++i) out += a[i] * b[i];
+    return out;
 }
 
 
@@ -90,18 +96,6 @@ static Ray *create_ray(Renderer *rptr, int px) {
 }
 
 
-static Pixel uvpx(Renderer *rptr, int px) {
-    float row01 = px / rptr->width / (float) rptr->height;
-    float col01 = px % rptr->width / (float) rptr->width;
-
-    Pixel out;
-    out.r = (unsigned char) 255 * row01;
-    out.g = (unsigned char) 255 * col01;
-    out.b = (unsigned char) 0;
-    return out;
-}
-
-
 Renderer *render_init(KerrArgs *args) {
     Renderer *out = malloc(sizeof(Renderer));
     for (int i = 0; i < 3; ++i) {
@@ -137,89 +131,273 @@ Renderer *render_init(KerrArgs *args) {
 }
 
 
-Pixel render_far(Ray *cur) {
-    Vec3 finalPos = {0.0F, 0.0F, 0.0F};
-    for (int i = 0; i < 3; ++i) {
-        finalPos[i] = cur->pos[i] + cur->dir[i] * 10000;
-        if (finalPos[i] > 1.0F) finalPos[i] = 1.0F;
-        else if (finalPos[i] < 0.0F) finalPos[i] = 0.0F;
-    }
-    Pixel out;
-    out.r = (unsigned char) 255 * finalPos[0];
-    out.g = (unsigned char) 255 * finalPos[1];
-    out.b = (unsigned char) 255 * finalPos[2];
-    return out;
+// // sphere rendering functions
+// static void pierce_atm(Ray *cur, Vec2 dest) {
+//     // returns (distance to sphere, length of path through sphere)
+//     // credit to Sebastian Lague at https://www.youtube.com/watch?v=DxfEbulyFcY&t=154s
+//     Vec3 spherePos = {0.0F, 0.0F, 0.0F};
+//     float sphereR = 2.0F;
+
+//     // solve parameterized equation for sphere collision https://viclw17.github.io/2018/07/16/raytracing-ray-sphere-intersection
+//     Vec3 originDiff = {0.0F, 0.0F, 0.0F};
+//     subV3(cur->pos, spherePos, originDiff);
+//     float b = 2. * dotV3(cur->dir, originDiff);
+//     float c = dotV3(originDiff, originDiff) - sphereR * sphereR;
+//     float disc = b * b - 4. * c;
+
+//     if (disc > 0.0F) {
+//         float sqrtDisc = sqrt(disc);
+//         float distNearIntersect = ((-b - sqrtDisc) / 2.0F) > 0.0F ? ((-b - sqrtDisc) / 2.0F) : 0.0F; // max for in case camera is inside sphere
+//         float distFarIntersect = (-b + sqrtDisc) / 2.0F;
+//         float rawAtmDepth = distFarIntersect - distNearIntersect;
+
+//         if (distFarIntersect >= 0.0F) {
+//             dest[0] = distNearIntersect;
+//             dest[1] = rawAtmDepth;
+//             return;
+//         }
+//     }
+    
+//     dest[0] = 1000000.0F;
+//     dest[1] = 0.0F;
+// }
+
+
+// static Pixel render_sphere(Ray *cur) {
+//     // check for ray collision with sphere
+//     Vec2 info = {0.0F, 0.0F};
+//     pierce_atm(cur, info);
+//     Vec3 nearint = {0.0F, 0.0F, 0.0F};
+//     for (int i = 0; i < 3; ++i) {
+//         nearint[i] = (cur->pos[i] + cur->dir[i] * info[0]) * 1000.0F;
+//         if (nearint[i] < 0.0F) nearint[i] = 0.0F;
+//         else if (nearint[i] > 1.0F) nearint[i] = 1.0F;
+//     }
+
+//     // determine color of pixel from collision info
+//     Pixel out;
+//     if (info[1]) {
+//         // if collided, render surface of sphere
+//         info[1] /= 4.0F;
+//         if (info[1] < 0.0F) info[1] = 0.0F;
+//         else if (info[1] > 1.0F) info[1] = 1.0F;
+
+//         out.r = (unsigned char) 255 * nearint[0] * info[1];
+//         out.g = (unsigned char) 255 * nearint[1] * info[1];
+//         out.b = (unsigned char) 255 * nearint[2] * info[1];
+
+//     } else {
+//         // otherwise, just render the background
+//         Vec3 finalPos = {0.0F, 0.0F, 0.0F};
+//         for (int i = 0; i < 3; ++i) {
+//             finalPos[i] = cur->pos[i] + cur->dir[i] * 10000.0F;
+//             if (finalPos[i] > 1.0F) finalPos[i] = 1.0F;
+//             else if (finalPos[i] < 0.0F) finalPos[i] = 0.0F;
+//         }
+//         out.r = (unsigned char) 255 * finalPos[0];
+//         out.g = (unsigned char) 255 * finalPos[1];
+//         out.b = (unsigned char) 255 * finalPos[2];
+//     }
+
+    
+//     return out;
+// }
+
+
+// black hole rendering functions
+static void get_ea(float L, Vec2 ep, Vec2 dest) { // Returns the second derivative of s
+    float ep_len = sqrt(ep[0] * ep[0] + ep[1] * ep[1]);
+    float c = -1.5F * (L * L) / pow(ep_len, 5.0F);
+    dest[0] = ep[0] * c;
+    dest[1] = ep[1] * c;
 }
 
 
-Pixel render_dir(Ray *cur) {
-    for (int i = 0; i < 3; ++i) {
-        if (cur->dir[i] > 1.0F) cur->dir[i] = 1.0F;
-        else if (cur->dir[i] < 0.0F) cur->dir[i] = 0.0F;
-    }
-    Pixel out;
-    out.r = (unsigned char) 255 * cur->dir[0];
-    out.g = (unsigned char) 255 * cur->dir[1];
-    out.b = (unsigned char) 255 * cur->dir[2];
-    return out;
-}
+static void get_finalpos(Ray *cur, Vec3 dest) {
+    // Initialize constants, ehat0, ehat1 ep, ev
+    int N = 3750; // 750
+    float dt = .01F; // .05F
+    Vec2 ep = {vlen(cur->pos), 0.0F};
+    Vec3 ehat0 = {
+        cur->pos[0] / ep[0],
+        cur->pos[1] / ep[0],
+        cur->pos[2] / ep[0]
+    };
+    float dot = dotV3(cur->dir, ehat0);
+    Vec3 ehat1 = {
+        cur->dir[0] - dot * ehat0[0],
+        cur->dir[1] - dot * ehat0[1],
+        cur->dir[2] - dot * ehat0[2]
+    };
+    vnorm(ehat1);
+    Vec2 ev = {dotV3(cur->dir, ehat0), dotV3(cur->dir, ehat1)};
+    float L = ep[0] * ev[1];
+    float diskSlope = -ehat0[1] / ehat1[1];
 
+    for (int i = 0; i < N; ++i) {
+        // Euler's method
+        Vec2 step_ep = {ev[0] * dt, ev[1] * dt};
+        Vec2 step_ev = {0.0F, 0.0F};
+        get_ea(L, ep, step_ev);
+        step_ev[0] *= dt; step_ev[1] *= dt;
 
-typedef float Vec2[2];
-float dotV3(Vec3 a, Vec3 b) {
-    float out = 0.0F;
-    for (int i = 0; i < 3; ++i) out += a[i] * b[i];
-    return out;
-}
-void pierce_atm(Ray *cur, Vec2 dest) {
-    // returns (distance to sphere, length of path through sphere)
-    // credit to Sebastian Lague at https://www.youtube.com/watch?v=DxfEbulyFcY&t=154s
-    Vec3 spherePos = {0.0F, 0.0F, 0.0F};
-    float sphereR = 2.0F;
+        // Update variables
+        Vec2 old_ep = {ep[0], ep[1]};
+        ep[0] += step_ep[0];
+        ep[1] += step_ep[1];
+        ev[0] += step_ev[0];
+        ev[1] += step_ev[1];
 
-    // solve parameterized equation for sphere collision https://viclw17.github.io/2018/07/16/raytracing-ray-sphere-intersection
-    Vec3 originDiff = {0.0F, 0.0F, 0.0F};
-    subV3(cur->pos, spherePos, originDiff);
-    // printf("origin diff: %.2f %.2f %.2f\n", originDiff[0], originDiff[1], originDiff[2]);
-    float b = 2. * dotV3(cur->dir, originDiff);
-    float c = dotV3(originDiff, originDiff) - sphereR * sphereR;
-    float disc = b * b - 4. * c;
-
-    if (disc > 0.0F) {
-        // printf("Heyo collision\n");
-        float sqrtDisc = sqrt(disc);
-        float distNearIntersect = ((-b - sqrtDisc) / 2.0F) > 0.0F ? ((-b - sqrtDisc) / 2.0F) : 0.0F; // max for in case camera is inside sphere
-        float distFarIntersect = (-b + sqrtDisc) / 2.0F;
-        float rawAtmDepth = distFarIntersect - distNearIntersect;
-
-        if (distFarIntersect >= 0.0F) {
-            dest[0] = distNearIntersect;
-            dest[1] = rawAtmDepth;
+        // Photon entered event horizon, return black
+        if (sqrt(ep[0] * ep[0] + ep[1] * ep[1]) < 1.0F) {
+            for (int i = 0; i < 3; ++i) dest[i] = 0.0F;
             return;
         }
-    }
-    
-    dest[0] = 1000000.0F;
-    dest[1] = 0.0F;
-}
-Pixel render_sphere(Ray *cur) {
-    Vec2 info = {0.0F, 0.0F};
-    pierce_atm(cur, info);
-    info[1] /= 4.0F;
-    if (info[1] < 0.0F) info[1] = 0.0F;
-    else if (info[1] > 1.0F) info[1] = 1.0F;
 
+        // Photon hit accretion disk
+        if (((ep[0] * diskSlope) < ep[1]) != ((old_ep[0] * diskSlope) < old_ep[1])) {
+            float current_m = (ep[1] - old_ep[1]) / (ep[0] - old_ep[0]);
+            float current_b = old_ep[1] - current_m * old_ep[0];
+            float cross_e0 = -current_b / (diskSlope - current_m);
+            float cross_e1 = diskSlope * cross_e0;
+            Vec3 finalPos = {
+                cross_e0 * ehat0[0] + cross_e1 * ehat1[0],
+                cross_e0 * ehat0[1] + cross_e1 * ehat1[1],
+                cross_e0 * ehat0[2] + cross_e1 * ehat1[2],
+            };
+            float final_len2 = cross_e0 * cross_e0 + cross_e1 * cross_e1;
+
+            if (final_len2 > 9.0F && final_len2 < 36.0F) {
+                for (int i = 0; i < 3; ++i) dest[i] = finalPos[i];
+                return;
+            }
+        }
+    }
+
+    Vec2 finalep = {ep[0] + 1000.0F * ev[0], ep[1] + 1000.0F * ev[1]};
+    Vec3 finalPos = {
+        finalep[0] * ehat0[0] + finalep[1] * ehat1[0],
+        finalep[0] * ehat0[1] + finalep[1] * ehat1[1],
+        finalep[0] * ehat0[2] + finalep[1] * ehat1[2],
+    };
+
+    for (int i = 0; i < 3; ++i) dest[i] = finalPos[i]; // Assume photon is far enough away from black hole to travel in straight line
+}
+
+
+static Pixel render_schwarz(Ray *cur) {
+    // determine final position of photon
+    Vec3 finalPos = {0.0F, 0.0F, 0.0F};
+    get_finalpos(cur, finalPos);
+    float finalLen = vlen(finalPos);
+
+    // determine final color of pixel
     Pixel out;
-    out.r = (unsigned char) 255 * info[1];
-    out.g = (unsigned char) 255 * info[1];
-    out.b = (unsigned char) 255 * info[1];
+    if (finalLen > 100.0F) { // if photon didn't hit disk
+        for (int i = 0; i < 3; ++i) {
+            if (finalPos[i] > 1.0F) finalPos[i] = 1.0F;
+            else if (finalPos[i] < 0.0F) finalPos[i] = 0.0F;
+        }
+        out.r = (unsigned char) 255 * finalPos[0];
+        out.g = (unsigned char) 255 * finalPos[1];
+        out.b = (unsigned char) 255 * finalPos[2];
+
+    } else if (finalLen > 2.9F) { // photon hit accretion disk
+        float fphi = (finalPos[2] >= 0.0F ? 1.0F : -1.0F) * acos(finalPos[0] / sqrt(finalPos[0] * finalPos[0] + finalPos[2] * finalPos[2])) + PI;
+        float r01 = (finalLen - 3.0F) / 3.0F;
+        float fphi01 = (fphi) / PI / 2.;
+        fphi01 -= (int) fphi01;
+        out.r = (unsigned char) 255 * r01;
+        out.g = (unsigned char) 255 * fphi01;
+
+        // out.r = (unsigned char) 255;
+        // out.g = (unsigned char) 170;
+        out.b = (unsigned char) 0;
+
+    } else { // photon entered black hole
+        out.r = (unsigned char) 0;
+        out.g = (unsigned char) 0;
+        out.b = (unsigned char) 0;
+    }
+
     return out;
 }
 
 
 Pixel render(Renderer *rptr, int px) {
     Ray *cur = create_ray(rptr, px);
-    Pixel out = render_sphere(cur);
+    Pixel out = render_schwarz(cur);
     free(cur);
     return out;
 }
+
+/*
+Vec2 get_ea(float L, Vec2 ep) { // Returns the second derivative of s
+  float ep_len = length(ep);
+  float c = -1.5 * (L * L) / pow(ep_len, 5.);
+  return Vec2(c) * ep;
+}
+
+
+Vec3 tracer(Ray currentRay) {
+  // Initialize constants, ehat0, ehat1 ep, ev
+  int N = 750;
+  float dt = .05;
+  Vec2 ep = Vec2(length(currentRay.origin), 0.);
+  Vec3 ehat0 = currentRay.origin / ep.x;
+  Vec3 ehat1 = normalize(cur->dir - dot(cur->dir, ehat0) * ehat0);
+  Vec2 ev = Vec2(dot(cur->dir, ehat0), dot(cur->dir, ehat1));
+  float L = ep.x * ev.y;
+  float diskSlope = -ehat0.y / ehat1.y;
+
+  for (int i = 0; i < N; ++i) {
+    // Classic Runge-Kutta method
+    // Vec2 k1ep, k2ep, k3ep, k4ep;
+    // Vec2 k1ev, k2ev, k3ev, k4ev;
+
+    // k1ep = ev;
+    // k1ev = get_ea(L, ep);
+    // k2ep = ev + dt * k1ev / 2.;
+    // k2ev = get_ea(L, ep + dt * k1ep / 2.);
+    // k3ep = ev + dt * k2ev / 2.;
+    // k3ev = get_ea(L, ep + dt * k2ep / 2.);
+    // k4ep = ev + dt * k3ev;
+    // k4ev = get_ea(L, ep + dt * k3ep);
+    // Vec2 step_ep = dt / 6. * (k1ep + 2. * k2ep + 2. * k3ep + k4ep);
+    // Vec2 step_ev = dt / 6. * (k1ev + 2. * k2ev + 2. * k3ev + k4ev);
+
+    // Euler's method
+    Vec2 step_ep = ev * dt;
+    Vec2 step_ev = get_ea(L, ep) * dt;
+
+    // Update variables
+    Vec2 old_ep = ep;
+    ep += step_ep;
+    ev += step_ev;
+
+    // Photon entered event horizon, return black
+    if (length(ep) < 1.) {
+      return Vec3(0.);
+    }
+    
+    // Photon hit accretion disk
+    if (ep.x * diskSlope < ep.y != old_ep.x * diskSlope < old_ep.y) {
+      float current_m = (ep.y - old_ep.y) / (ep.x - old_ep.x);
+      float current_b = old_ep.y - current_m * old_ep.x;
+      float cross_e0 = -current_b / (diskSlope - current_m);
+      float cross_e1 = diskSlope * cross_e0;
+      Vec3 finalPos = cross_e0 * ehat0 + cross_e1 * ehat1;
+      float final_len2 = cross_e0 * cross_e0 + cross_e1 * cross_e1;
+
+      if (final_len2 > 9. && final_len2 < 36.) {
+        return finalPos;
+      }
+    }
+  }
+  
+  Vec2 finalep = ep + Vec2(1000.) * ev;
+  Vec3 finalPos = finalep.x * ehat0 + finalep.y * ehat1;
+
+  return finalPos; // Assume photon is far enough away from black hole to travel in straight line
+}
+*/

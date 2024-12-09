@@ -6,6 +6,7 @@
 
 
 typedef float Mat4[4][4];
+typedef float Vec2[2];
 typedef float Vec3[3];
 typedef float Vec4[4];
 typedef struct Renderer {
