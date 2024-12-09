@@ -28,7 +28,34 @@ int free_args(KerrArgs *args) {
 }
 
 
-void print_args(KerrArgs *args) {
+static void print_usage() {
+    fprintf(
+        stderr,
+        "Usage: bin/kerr [schwarz|sphere]\n"
+        "Flags:\n"
+        "\tx/t: %30s\n"
+        "\ty/u: %30s\n"
+        "\tz/v: %30s\n"
+        "\tf:   %30s\n"
+        "\tw:   %30s\n"
+        "\th:   %30s\n"
+        "\ts:   %30s\n"
+        "\tm:   %30s\n"
+        "\tn:   %30s\n",
+        "x pos/dir of camera",
+        "y pos/dir of camera",
+        "z pos/dir of camera",
+        "camera fov",
+        "width of picture",
+        "height of picture",
+        "task size",
+        "file name of image",
+        "number of threads"
+    ); 
+}
+
+
+static void print_args(KerrArgs *args) {
     printf(
         "Position: {%.2f, %.2f, %.2f}\n"
         "Direction: {%.2f, %.2f, %.2f}\n"
@@ -36,14 +63,16 @@ void print_args(KerrArgs *args) {
         "Image Size: %d x %d\n"
         "Pixels per Task: %d\n"
         "File Name: \"%s\"\n"
-        "Number of Threads: %d\n",
+        "Number of Threads: %d\n"
+        "Scene: %s\n",
         args->pos[0], args->pos[1], args->pos[2],
         args->dir[0], args->dir[1], args->dir[2],
         args->fov,
         args->width, args->height,
         args->taskSize,
         args->fileName,
-        args->numThreads
+        args->numThreads,
+        args->scene
     );
 }
 
@@ -51,18 +80,33 @@ void print_args(KerrArgs *args) {
 KerrArgs *parse_args(int argc, char **argv) {
     KerrArgs *out = malloc(sizeof(KerrArgs));
     *out = (KerrArgs) {
-        {0, 0, 10},
-        {0, 0, -1},
+        {-2, 2, -10},
+        {0.19, -0.19, 0.96},
         90,
         512,
         512,
         2048,
         NULL,
-        16
+        16,
+        "schwarz"
     };
 
+    // get the scene
+    if (argc < 2) {
+        print_usage();
+        free(out);
+        return NULL;
+    } else {
+        out->scene = argv[1];
+        if (strcmp(out->scene, "schwarz") && strcmp(out->scene, "sphere")) {
+            fprintf(stderr, "Error: invalid scene \"%s\" name is neither \"schwarz\" nor \"sphere\"\n", out->scene);
+            free(out);
+            return NULL;
+        }
+    }
+
     int opt;
-    while((opt = getopt(argc, argv, "x:t:y:u:z:v:f:w:h:s:m:n:")) != -1)  
+    while((opt = getopt(argc - 1, argv + 1, "x:t:y:u:z:v:f:w:h:s:m:n:")) != -1)  
     {  
         switch(opt)  
         {
@@ -161,28 +205,7 @@ KerrArgs *parse_args(int argc, char **argv) {
                 break;
 
             case '?':  
-                fprintf(
-                    stderr,
-                    "flags:\n"
-                    "\tx/t: %30s\n"
-                    "\ty/u: %30s\n"
-                    "\tz/v: %30s\n"
-                    "\tf: %30s\n"
-                    "\tw: %30s\n"
-                    "\th: %30s\n"
-                    "\ts: %30s\n"
-                    "\tm: %30s\n"
-                    "\tn: %30s\n",
-                    "x pos/dir of camera",
-                    "y pos/dir of camera",
-                    "z pos/dir of camera",
-                    "camera fov",
-                    "width of picture",
-                    "height of picture",
-                    "task size",
-                    "file name of image",
-                    "number of threads"
-                ); 
+                print_usage();
                 free_args(out);
                 return NULL;
         }  

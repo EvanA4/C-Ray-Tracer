@@ -16,6 +16,7 @@ typedef struct Renderer {
     int width;
     int height;
     Mat4 view;
+    char *scene;
 } Renderer;
 
 

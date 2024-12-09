@@ -23,6 +23,7 @@ typedef struct KerrArgs {
     int taskSize;
     char *fileName;
     int numThreads;
+    char *scene;
 } KerrArgs;
 
 

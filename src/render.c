@@ -1,5 +1,6 @@
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 #include "tga.h"
 #include "render.h"
 
@@ -105,6 +106,7 @@ Renderer *render_init(KerrArgs *args) {
     out->fov = args->fov;
     out->width = args->width;
     out->height = args->height;
+    out->scene = args->scene;
 
     // compute view matrix
     //     thanks to https://www.3dgep.com/understanding-the-view-matrix/
@@ -131,77 +133,77 @@ Renderer *render_init(KerrArgs *args) {
 }
 
 
-// // sphere rendering functions
-// static void pierce_atm(Ray *cur, Vec2 dest) {
-//     // returns (distance to sphere, length of path through sphere)
-//     // credit to Sebastian Lague at https://www.youtube.com/watch?v=DxfEbulyFcY&t=154s
-//     Vec3 spherePos = {0.0F, 0.0F, 0.0F};
-//     float sphereR = 2.0F;
+// sphere rendering functions
+static void pierce_atm(Ray *cur, Vec2 dest) {
+    // returns (distance to sphere, length of path through sphere)
+    // credit to Sebastian Lague at https://www.youtube.com/watch?v=DxfEbulyFcY&t=154s
+    Vec3 spherePos = {0.0F, 0.0F, 0.0F};
+    float sphereR = 2.0F;
 
-//     // solve parameterized equation for sphere collision https://viclw17.github.io/2018/07/16/raytracing-ray-sphere-intersection
-//     Vec3 originDiff = {0.0F, 0.0F, 0.0F};
-//     subV3(cur->pos, spherePos, originDiff);
-//     float b = 2. * dotV3(cur->dir, originDiff);
-//     float c = dotV3(originDiff, originDiff) - sphereR * sphereR;
-//     float disc = b * b - 4. * c;
+    // solve parameterized equation for sphere collision https://viclw17.github.io/2018/07/16/raytracing-ray-sphere-intersection
+    Vec3 originDiff = {0.0F, 0.0F, 0.0F};
+    subV3(cur->pos, spherePos, originDiff);
+    float b = 2. * dotV3(cur->dir, originDiff);
+    float c = dotV3(originDiff, originDiff) - sphereR * sphereR;
+    float disc = b * b - 4. * c;
 
-//     if (disc > 0.0F) {
-//         float sqrtDisc = sqrt(disc);
-//         float distNearIntersect = ((-b - sqrtDisc) / 2.0F) > 0.0F ? ((-b - sqrtDisc) / 2.0F) : 0.0F; // max for in case camera is inside sphere
-//         float distFarIntersect = (-b + sqrtDisc) / 2.0F;
-//         float rawAtmDepth = distFarIntersect - distNearIntersect;
+    if (disc > 0.0F) {
+        float sqrtDisc = sqrt(disc);
+        float distNearIntersect = ((-b - sqrtDisc) / 2.0F) > 0.0F ? ((-b - sqrtDisc) / 2.0F) : 0.0F; // max for in case camera is inside sphere
+        float distFarIntersect = (-b + sqrtDisc) / 2.0F;
+        float rawAtmDepth = distFarIntersect - distNearIntersect;
 
-//         if (distFarIntersect >= 0.0F) {
-//             dest[0] = distNearIntersect;
-//             dest[1] = rawAtmDepth;
-//             return;
-//         }
-//     }
+        if (distFarIntersect >= 0.0F) {
+            dest[0] = distNearIntersect;
+            dest[1] = rawAtmDepth;
+            return;
+        }
+    }
     
-//     dest[0] = 1000000.0F;
-//     dest[1] = 0.0F;
-// }
+    dest[0] = 1000000.0F;
+    dest[1] = 0.0F;
+}
 
 
-// static Pixel render_sphere(Ray *cur) {
-//     // check for ray collision with sphere
-//     Vec2 info = {0.0F, 0.0F};
-//     pierce_atm(cur, info);
-//     Vec3 nearint = {0.0F, 0.0F, 0.0F};
-//     for (int i = 0; i < 3; ++i) {
-//         nearint[i] = (cur->pos[i] + cur->dir[i] * info[0]) * 1000.0F;
-//         if (nearint[i] < 0.0F) nearint[i] = 0.0F;
-//         else if (nearint[i] > 1.0F) nearint[i] = 1.0F;
-//     }
+static Pixel render_sphere(Ray *cur) {
+    // check for ray collision with sphere
+    Vec2 info = {0.0F, 0.0F};
+    pierce_atm(cur, info);
+    Vec3 nearint = {0.0F, 0.0F, 0.0F};
+    for (int i = 0; i < 3; ++i) {
+        nearint[i] = (cur->pos[i] + cur->dir[i] * info[0]) * 1000.0F;
+        if (nearint[i] < 0.0F) nearint[i] = 0.0F;
+        else if (nearint[i] > 1.0F) nearint[i] = 1.0F;
+    }
 
-//     // determine color of pixel from collision info
-//     Pixel out;
-//     if (info[1]) {
-//         // if collided, render surface of sphere
-//         info[1] /= 4.0F;
-//         if (info[1] < 0.0F) info[1] = 0.0F;
-//         else if (info[1] > 1.0F) info[1] = 1.0F;
+    // determine color of pixel from collision info
+    Pixel out;
+    if (info[1]) {
+        // if collided, render surface of sphere
+        info[1] /= 4.0F;
+        if (info[1] < 0.0F) info[1] = 0.0F;
+        else if (info[1] > 1.0F) info[1] = 1.0F;
 
-//         out.r = (unsigned char) 255 * nearint[0] * info[1];
-//         out.g = (unsigned char) 255 * nearint[1] * info[1];
-//         out.b = (unsigned char) 255 * nearint[2] * info[1];
+        out.r = (unsigned char) 255 * nearint[0] * info[1];
+        out.g = (unsigned char) 255 * nearint[1] * info[1];
+        out.b = (unsigned char) 255 * nearint[2] * info[1];
 
-//     } else {
-//         // otherwise, just render the background
-//         Vec3 finalPos = {0.0F, 0.0F, 0.0F};
-//         for (int i = 0; i < 3; ++i) {
-//             finalPos[i] = cur->pos[i] + cur->dir[i] * 10000.0F;
-//             if (finalPos[i] > 1.0F) finalPos[i] = 1.0F;
-//             else if (finalPos[i] < 0.0F) finalPos[i] = 0.0F;
-//         }
-//         out.r = (unsigned char) 255 * finalPos[0];
-//         out.g = (unsigned char) 255 * finalPos[1];
-//         out.b = (unsigned char) 255 * finalPos[2];
-//     }
+    } else {
+        // otherwise, just render the background
+        Vec3 finalPos = {0.0F, 0.0F, 0.0F};
+        for (int i = 0; i < 3; ++i) {
+            finalPos[i] = cur->pos[i] + cur->dir[i] * 10000.0F;
+            if (finalPos[i] > 1.0F) finalPos[i] = 1.0F;
+            else if (finalPos[i] < 0.0F) finalPos[i] = 0.0F;
+        }
+        out.r = (unsigned char) 255 * finalPos[0];
+        out.g = (unsigned char) 255 * finalPos[1];
+        out.b = (unsigned char) 255 * finalPos[2];
+    }
 
     
-//     return out;
-// }
+    return out;
+}
 
 
 // black hole rendering functions
@@ -323,7 +325,12 @@ static Pixel render_schwarz(Ray *cur) {
 
 Pixel render(Renderer *rptr, int px) {
     Ray *cur = create_ray(rptr, px);
-    Pixel out = render_schwarz(cur);
+    Pixel out = {(unsigned char) 0, (unsigned char) 0, (unsigned char) 0};
+    if (!strcmp(rptr->scene, "schwarz")) {
+        out = render_schwarz(cur);
+    } else if (!strcmp(rptr->scene, "sphere")) {
+        out = render_sphere(cur);
+    }
     free(cur);
     return out;
 }
