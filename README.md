@@ -12,7 +12,7 @@ To create the binary executable, just run `make` while in this repository's root
 
 To render the schwarzschild black hole as seen above, run the following command:
 ```
-bin/kerr schwarz -w1920 -h1080 -s512 -f90 -x1.6 -y.8 -z-8 -t-.1 -u-.1 -v1 -m myschwarz
+bin/kerr schwarz -w1920 -h1080 -s512 -x1.6 -y.8 -z-8 -t-.1 -u-.1 -v1 -m myschwarz
 ```
 
 To render the sphere image as seen above, run the following command:
