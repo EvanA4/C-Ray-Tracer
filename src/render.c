@@ -309,9 +309,6 @@ static Pixel render_schwarz(Ray *cur) {
         fphi01 -= (int) fphi01;
         out.r = (unsigned char) 255 * r01;
         out.g = (unsigned char) 255 * fphi01;
-
-        // out.r = (unsigned char) 255;
-        // out.g = (unsigned char) 170;
         out.b = (unsigned char) 0;
 
     } else { // photon entered black hole
@@ -330,74 +327,3 @@ Pixel render(Renderer *rptr, int px) {
     free(cur);
     return out;
 }
-
-/*
-Vec2 get_ea(float L, Vec2 ep) { // Returns the second derivative of s
-  float ep_len = length(ep);
-  float c = -1.5 * (L * L) / pow(ep_len, 5.);
-  return Vec2(c) * ep;
-}
-
-
-Vec3 tracer(Ray currentRay) {
-  // Initialize constants, ehat0, ehat1 ep, ev
-  int N = 750;
-  float dt = .05;
-  Vec2 ep = Vec2(length(currentRay.origin), 0.);
-  Vec3 ehat0 = currentRay.origin / ep.x;
-  Vec3 ehat1 = normalize(cur->dir - dot(cur->dir, ehat0) * ehat0);
-  Vec2 ev = Vec2(dot(cur->dir, ehat0), dot(cur->dir, ehat1));
-  float L = ep.x * ev.y;
-  float diskSlope = -ehat0.y / ehat1.y;
-
-  for (int i = 0; i < N; ++i) {
-    // Classic Runge-Kutta method
-    // Vec2 k1ep, k2ep, k3ep, k4ep;
-    // Vec2 k1ev, k2ev, k3ev, k4ev;
-
-    // k1ep = ev;
-    // k1ev = get_ea(L, ep);
-    // k2ep = ev + dt * k1ev / 2.;
-    // k2ev = get_ea(L, ep + dt * k1ep / 2.);
-    // k3ep = ev + dt * k2ev / 2.;
-    // k3ev = get_ea(L, ep + dt * k2ep / 2.);
-    // k4ep = ev + dt * k3ev;
-    // k4ev = get_ea(L, ep + dt * k3ep);
-    // Vec2 step_ep = dt / 6. * (k1ep + 2. * k2ep + 2. * k3ep + k4ep);
-    // Vec2 step_ev = dt / 6. * (k1ev + 2. * k2ev + 2. * k3ev + k4ev);
-
-    // Euler's method
-    Vec2 step_ep = ev * dt;
-    Vec2 step_ev = get_ea(L, ep) * dt;
-
-    // Update variables
-    Vec2 old_ep = ep;
-    ep += step_ep;
-    ev += step_ev;
-
-    // Photon entered event horizon, return black
-    if (length(ep) < 1.) {
-      return Vec3(0.);
-    }
-    
-    // Photon hit accretion disk
-    if (ep.x * diskSlope < ep.y != old_ep.x * diskSlope < old_ep.y) {
-      float current_m = (ep.y - old_ep.y) / (ep.x - old_ep.x);
-      float current_b = old_ep.y - current_m * old_ep.x;
-      float cross_e0 = -current_b / (diskSlope - current_m);
-      float cross_e1 = diskSlope * cross_e0;
-      Vec3 finalPos = cross_e0 * ehat0 + cross_e1 * ehat1;
-      float final_len2 = cross_e0 * cross_e0 + cross_e1 * cross_e1;
-
-      if (final_len2 > 9. && final_len2 < 36.) {
-        return finalPos;
-      }
-    }
-  }
-  
-  Vec2 finalep = ep + Vec2(1000.) * ev;
-  Vec3 finalPos = finalep.x * ehat0 + finalep.y * ehat1;
-
-  return finalPos; // Assume photon is far enough away from black hole to travel in straight line
-}
-*/
